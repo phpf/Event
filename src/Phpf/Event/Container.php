@@ -2,8 +2,6 @@
 
 namespace Phpf\Event;
 
-use Phpf\Util\Arr;
-
 class Container {
 	
 	const SORT_LOW_HIGH = 1;
