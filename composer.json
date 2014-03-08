@@ -1,0 +1,24 @@
+{
+	"name": "phpf/event",
+	"type": "library",
+	"description": "Phpf Event package",
+	"keywords": ["Event", "Hook", "Action", "Filter"],
+	"homepage": "https://github.com/phpf/Event",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "The PHPf Developer",
+			"email": "wellspeterson@live.com"
+		}
+	],
+	"require": {
+		"php": ">=5.3",
+		"phpf/util": "dev-master"
+	},
+	"autoload": {
+		"psr-0": {
+			"Phpf\\Event\\": "src/"
+		}
+	},
+	"minimum-stability": "dev"
+}
