@@ -8,7 +8,9 @@ class Container {
 	
 	const SORT_HIGH_LOW = 2;
 	
-	protected $sort_order;
+	const DEFAULT_PRIORITY = 10;
+	
+	protected $order;
 	
 	protected $events = array();
 	
@@ -16,53 +18,33 @@ class Container {
 	
 	protected $completed = array();
 	
-	protected static $instance;
-	
-	public static function instance(){
-		if ( !isset(self::$instance) )
-			self::$instance = new self();
-		return self::$instance;
-	}
-	
 	/**
-	 * Sets the default sort order (low to high)
+	 * Constructor
+	 * Sets the default sort order (low to high) and
+	 * a context if given.
 	 */
-	private function __construct(){
-		$this->sort_order = self::SORT_LOW_HIGH;
+	public function __construct( $context = null ){
+
+		$this->order = static::SORT_LOW_HIGH;
+		
+		if ( isset($context) )
+			$this->context = $context;		
 	}
 	
 	/**
-	 * Sets the listener priority sort order.
-	 * 
-	 * @param int $order One of self::SORT_LOW_HIGH (1) or self::SORT_HIGH_LOW (2)
-	 * @return $this
-	 */
-	public function setSortOrder( $order ){
-		
-		if ( ! in_array($order, array(self::SORT_LOW_HIGH, self::SORT_HIGH_LOW)) ){
-			
-			throw new \InvalidArgumentException("Invalid sort order.");
-		}
-		
-		$this->sort_order = (int)$order;
-		
-		return $this;
-	}
-	
-	/**
-	 * Adds an event listener.
+	 * Adds an event listener (real listeners are lazy-loaded).
 	 * 
 	 * @param string $event Event ID
 	 * @param mixed $call Callable to execute on event
 	 * @param int $priority Priority to give to the listener
 	 * @return $this
 	 */
-	public function on( $event, $call, $priority = 10 ){
+	public function on( $event, $call, $priority = self::DEFAULT_PRIORITY ){
 		
 		if ( ! isset($this->listeners[$event]) )
 			$this->listeners[$event] = array();
 		
-		$this->listeners[$event][] = new Listener($event, $call, $priority);
+		$this->listeners[$event][] = array($call, $priority);
 		
 		return $this;
 	}
@@ -93,14 +75,19 @@ class Container {
 			return $return;
 		}
 		
+		// lazy-load the listeners
+		array_walk($listeners, function (&$val) use ($event) {
+			$val = new Listener($event->id, $val[0], $val[1]);
+		});
+		
 		// Get arguments
 		$args = func_get_args();
 		
 		// Remove event from arguments
 		array_shift($args);
 		
-		// Sort the events.
-		usort($listeners, array($this, 'listenerSort'));
+		// Sort the listeners.
+		usort($listeners, array($this, 'sortListeners'));
 		
 		// Call the listeners
 		foreach($listeners as $listener){
@@ -108,15 +95,15 @@ class Container {
 			$return[] = $listener($event, $args);
 			
 			// Return if listener has stopped propagation
-			if ( $event->propagationStopped() ){
+			if ( $event->isPropagationStopped() ){
 				
-				$this->completeEvent($event);
+				$this->complete($event, $return);
 				
 				return $return;
 			}
 		}
 		
-		$this->completeEvent($event);
+		$this->complete($event, $return);
 		
 		return $return;
 	}
@@ -127,18 +114,51 @@ class Container {
 	 * @param string $eventId The event's ID
 	 * @return Event The completed Event object.
 	 */
-	public function getCompletedEvent($eventId){
-		return isset($this->completed[$eventId]) ? $this->completed[$eventId] : null;
+	public function getEvent($eventId){
+		return isset($this->completed[$eventId]) ? $this->completed[$eventId]['event'] : null;
 	}
 	
 	/**
-	 * Saves the Event after the last listener has been called.
+	 * Returns the array that was returned from a completed Event trigger.
 	 * 
-	 * @param Event $event The completed event.
+	 * This allows you to access previously returned values (obviously).
+	 * 
+	 * @param string $eventId The event's ID
+	 * @return array Values returned from the event's listeners
+	 */
+	public function getEventResult($eventId){
+		return isset($this->completed[$eventId]) ? $this->completed[$eventId]['result'] : null;
+	}
+	
+	/**
+	 * Sets the listener priority sort order.
+	 * 
+	 * @param int $order One of self::SORT_LOW_HIGH (1) or self::SORT_HIGH_LOW (2)
+	 * @return $this
+	 */
+	public function setSortOrder( $order ){
+		
+		if ($order != self::SORT_LOW_HIGH && $order != self::SORT_HIGH_LOW){
+			throw new \InvalidArgumentException("Invalid sort order.");
+		}
+		
+		$this->order = (int)$order;
+		
+		return $this;
+	}
+	
+	/**
+	 * Stores the Event and its return array once the last listener has been called.
+	 * 
+	 * @param Event $event The completed event object.
+	 * @param array $return The returned array
 	 * @return void
 	 */
-	protected function completeEvent( Event $event ){
-		$this->completed[$event->id] = $event;
+	protected function complete(Event $event, array $return){
+		$this->completed[$event->id] = array(
+			'event' => $event,
+			'result' => $return
+		);
 	}
 	
 	/**
@@ -158,26 +178,23 @@ class Container {
 	* @param Listener $b
 	* @return int sort result
 	*/
-	protected function listenerSort(Listener $a, Listener $b){
+	protected function sortListeners(Listener $a, Listener $b){
 		
-		switch($this->sort_order){
+		if ( $this->order === static::SORT_LOW_HIGH ){
+
+			if ($a->priority >= $b->priority){
+				return 1;
+			}
 			
-			case self::SORT_LOW_HIGH:
-			default:
+			return -1;
+
+		} else {
 					
-				if ($a->priority >= $b->priority){
-					return 1;
-				}
-				
-				return -1;
+			if ($a->priority <= $b->priority){
+				return 1;
+			}
 			
-			case self::SORT_HIGH_LOW:
-					
-				if ($a->priority <= $b->priority){
-					return 1;
-				}
-				
-				return -1;
+			return -1;
 		}
 	}
 	

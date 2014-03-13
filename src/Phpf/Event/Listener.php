@@ -16,14 +16,12 @@ class Listener {
 		$this->priority = $priority;
 	}
 	
-	public function __invoke(&$event, $args){
-		
-		$handler = $this->callback;
+	public function __invoke( Event &$event, array $args = array() ){
 		
 		// Prepend Event to $args array
 		array_unshift($args, $event);
 		
-		return call_user_func_array($handler, $args);
+		return call_user_func_array($this->callback, $args);
 	}
 	
 }

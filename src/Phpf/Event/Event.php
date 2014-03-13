@@ -28,7 +28,7 @@ class Event implements \ArrayAccess {
 		return $this;
 	}
 	
-	final public function propagationStopped(){
+	final public function isPropagationStopped(){
 		return $this->propagationStopped;
 	}
 	
