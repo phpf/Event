@@ -39,7 +39,7 @@ $events->trigger('myevent', 'Example'); // outputs "I'm doing my event called Ex
 
 By default, events are added with a priority of 10 and executed _from lowest to highest_. You can, however, change this to high-to-low:
 ```php
-$events->setSortOrder(\Phpf\Event\Container::::SORT_HIGH_LOW);
+$events->setSortOrder(\Phpf\Event\Container::SORT_HIGH_LOW);
 ```
 
 Using the default low-to-high sort order, the following would result in 'myfunc_called_first' to be called before 'myfunc_called_second':
@@ -55,14 +55,14 @@ $events->trigger('myevent');
 Like JS events, propagation of Phpf events can be stopped by a listener at any time. 
 
 ```php
-$events->on('myevent', function ($event, $myarg) {
+$events->on('myevent', function ($event) {
 	
 	echo "This will be printed";
 	
 	$event->stopPropagation();
 });
 
-$events->on('myevent', function ($event, $myarg) {
+$events->on('myevent', function ($event) {
 
 	echo "This will not be printed.";
 });
@@ -110,4 +110,20 @@ $events->on('myevent', function ($event) {
 $results = $events->trigger('myevent');
 
 print_r($results); // array(0 => 'Hello', 1 => 'Goodbye');
+```
+
+### Retrieving Completed Events
+
+The event container stores completed events and their returned arrays for later use. The example below shows how to access them:
+```php
+$myeventResults = $events->trigger('myevent');
+
+// ...later on, possibly in another script:
+$myeventResultsAgain = $events->getEventResult('myevent');
+
+$myeventObject = $events->getEvent('myevent');
+
+// ... do stuff with $myeventObject
+
+$newResults = $events->trigger($myeventObject); // re-trigger event
 ```
