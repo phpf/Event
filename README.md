@@ -90,3 +90,24 @@ $events->on('myevent', function ($event) {
 	echo "I will print first.";
 });
 ```
+
+### Returning Results
+
+When events listeners are executed, any returned result will be collected by the container; on completion (or propagation stoppage), the results will be returned as an indexed array.
+
+For example:
+```php
+$events->on('myevent', function ($event) {
+	
+	return 'Hello';
+});
+
+$events->on('myevent', function ($event) {
+	
+	return 'Goodbye';
+});
+
+$results = $events->trigger('myevent');
+
+print_r($results); // array(0 => 'Hello', 1 => 'Goodbye');
+```
