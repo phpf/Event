@@ -42,12 +42,51 @@ By default, events are added with a priority of 10 and executed _from lowest to 
 $events->setSortOrder(\Phpf\Event\Container::::SORT_HIGH_LOW);
 ```
 
-Using the default ordering, the following events:
+Using the default low-to-high sort order, the following would result in 'myfunc_called_first' to be called before 'myfunc_called_second':
 ```php
-$events->on('myevent', array('My_Class', 'myOtherMethod'), 15);
-$events->on('myevent', array('My_Class', 'myMethod'), 9); // default priority is 10
+$events->on('myevent', 'myfunc_called_second'), 15);
+$events->on('myevent', 'myfunc_called_first', 9);
 
 $events->trigger('myevent');
 ```
-would call 'myMethod' prior to 'myOtherMethod'.
 
+### Stopping Propagation
+
+Like JS events, propagation of Phpf events can be stopped by a listener at any time. 
+
+```php
+$events->on('myevent', function ($event, $myarg) {
+	
+	echo "This will be printed";
+	
+	$event->stopPropagation();
+});
+
+$events->on('myevent', function ($event, $myarg) {
+
+	echo "This will not be printed.";
+});
+```
+In the example above, because the two events have the same priority and the first event (which stops propagation) is added first, the second callback will not be called. 
+
+A more complex example:
+```php
+$events->on('myevent', function ($event) {
+	
+	echo "I will not print. In fact, I won't even be called.";
+	
+}, 15);
+
+$events->on('myevent', function ($event) {
+	
+	echo "I will print second.";
+	
+	$event->stopPropagation();
+	
+}, 11);
+
+$events->on('myevent', function ($event) {
+	
+	echo "I will print first.";
+});
+```
