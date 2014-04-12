@@ -39,7 +39,7 @@ $events->trigger('myevent', 'Example'); // outputs "I'm doing my event called Ex
 
 By default, events are added with a priority of 10 and executed _from lowest to highest_. You can, however, change this to high-to-low:
 ```php
-$events->setSortOrder(\Phpf\Event\Container::SORT_HIGH_LOW);
+$events->orderBy(\Phpf\Event\Container::HIGH_TO_LOW);
 ```
 
 Using the default low-to-high sort order, the following would result in 'myfunc_called_first' to be called before 'myfunc_called_second':
@@ -67,13 +67,13 @@ $events->on('myevent', function ($event) {
 	echo "This will not be printed.";
 });
 ```
-In the example above, because the two events have the same priority and the first event (which stops propagation) is added first, the second callback will not be called. 
+In the example above, because the two events have the same priority and the first event is added first (which stops propagation), the second callback will not be called. 
 
 A more complex example:
 ```php
 $events->on('myevent', function ($event) {
 	
-	echo "I will not print. In fact, I won't even be called.";
+	echo "I won't even be called.";
 	
 }, 15);
 
@@ -119,9 +119,9 @@ The event container stores completed events and their returned arrays for later 
 $myeventResults = $events->trigger('myevent');
 
 // ...later on, possibly in another script:
-$myeventResultsAgain = $events->getEventResult('myevent');
+$resultsAgain = $events->result('myevent');
 
-$myeventObject = $events->getEvent('myevent');
+$myeventObject = $events->event('myevent');
 
 // ... do stuff with $myeventObject
 
