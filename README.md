@@ -9,7 +9,7 @@ Simple, powerful, and extendable JavaScript-like events for PHP.
  * Simple syntax (`on()` to bind, `trigger()` to emit)
  * Extendable event objects
  * Priority ordering of callbacks
- * Callbacks can be any callable (not limited closures)
+ * Callbacks can be any callable (not limited to closures)
  * An arbitrary number of arguments can be passed to callbacks
  * Prevent default behavior (`preventDefault()`), or stop propagation altogether (`stopPropagation()`)
  * One-time events (`one()`)
@@ -28,9 +28,7 @@ $events->on('myevent', function ($event, $myarg) {
 	}
 	
 	echo "I'm doing my event called $myarg!";
-	
 });
-
 
 $events->trigger('myevent', 'Example'); // outputs "I'm doing my event called Example!"
 ```
