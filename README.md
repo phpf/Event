@@ -1,17 +1,19 @@
 Event
 =====
 
-JavaScript-like events for PHP
+Simple, powerful, and extendable JavaScript-like events for PHP.
 
 
 ##Features
 
- * JS-like event objects
- * Prevent default behavior, or stop propagation altogether
- * Any callable can be callback - not forced to use closures 
- * Arbitrary number of arguments can be passed to callbacks
- * Priority ordering of callbacks
+ * Simple syntax (`on()` to bind, `trigger()` to emit)
  * Extendable event objects
+ * Priority ordering of callbacks
+ * Callbacks can be any callable (not limited closures)
+ * An arbitrary number of arguments can be passed to callbacks
+ * Prevent default behavior (`preventDefault()`), or stop propagation altogether (`stopPropagation()`)
+ * One-time events (`one()`)
+ * Event cancelling (`off()`)
 
 ##Basic Usage
 
@@ -37,12 +39,12 @@ $events->trigger('myevent', 'Example'); // outputs "I'm doing my event called Ex
 
 ### Using Priorities
 
-By default, events are added with a priority of 10 and executed _from lowest to highest_. You can, however, change this to high-to-low:
+By default, events are added with a priority of 10 and _executed from lowest to highest_. However, due to the fact that developers understand this concept differently, you can change this to high-to-low:
 ```php
 $events->orderBy(\Phpf\Event\Container::HIGH_TO_LOW);
 ```
 
-Using the default low-to-high sort order, the following would result in 'myfunc_called_first' to be called before 'myfunc_called_second':
+Using the default low-to-high order, the following would result in 'myfunc_called_first' to be called before 'myfunc_called_second':
 ```php
 $events->on('myevent', 'myfunc_called_second'), 15);
 $events->on('myevent', 'myfunc_called_first', 9);
@@ -126,4 +128,71 @@ $myeventObject = $events->event('myevent');
 // ... do stuff with $myeventObject
 
 $newResults = $events->trigger($myeventObject); // re-trigger event
+```
+
+### Cancelling Events
+
+To cancel an event, simply call the `off()` method:
+```php
+$events->off('myevent');
+```
+This will remove any listeners bound to the event, so they will not be called even if subsequently triggered.
+
+### Single-Listener Events
+
+You can limit an event's execution to a single listener by using the `one()` method instead of `on()`:
+```php
+$events->one('myevent', function ($event) {
+	echo "I will print.";
+});
+
+$events->on('myevent', function ($event) {
+	echo "I will not print, even though I was bound later.";
+});
+
+$events->trigger('myevent'); // Prints "I will print."
+```
+
+### Custom Event Objects
+The `trigger()` method also allows an instance of the `Event` class to be given instead of the event ID. By doing so, you can use custom event objects that have special features.
+
+For example, if you want an event listeners to be able to modify a returned value (i.e. a "filter"), you could create a class like the following:
+```php
+namespace MyEvents;
+
+use Phpf\Event\Event;
+
+class FilterEvent extends Event {
+	
+	protected $value;
+	
+	public function getValue() {
+		return $this->value;
+	}
+	
+	public function setValue($value) {
+		$this->value = $value;
+		return $this;
+	}
+}
+```
+
+Then, you could use the class like so:
+```php
+$events->on('myFilterEvent', function ($event) {
+	$event->setValue('Custom events');
+});
+
+$events->on('myFilterEvent', function ($event) {
+	$val = $event->getValue();
+	$event->setValue($val . ' are cool.');
+});
+
+$filterEvent = new \MyEvents\FilterEvent('myFilterEvent');
+
+$events->trigger($filterEvent);
+
+$filteredEvent = $events->event('myFilterEvent');
+
+echo $filteredEvent->getValue(); // Prints "Custom events are cool."
 ```
