@@ -2,13 +2,14 @@
 
 namespace Phpf\Event\Std;
 
-use Phpf\Event\Event;
+use Phpf\Event;
+use Exception;
 
 class Error extends Event {
 	
 	public $exceptions;
 	
-	public function attachException(\Exception $exception){
+	public function attachException(Exception $exception){
 		$this->exceptions[] = $exception;
 	}
 	

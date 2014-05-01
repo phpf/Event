@@ -2,28 +2,51 @@
 
 namespace Phpf\Event\Std;
 
-use Phpf\Event\Event;
+use Phpf\Event;
+use InvalidArgumentException;
+use RuntimeException;
 
-class Invokable extends Event {
-	
+class Invokable extends Event
+{
+
+	/**
+	 * Callback to run when event is invoked.
+	 * @var callable
+	 */
 	protected $call;
-	
-	public function onInvoke( $call ){
-		
-		if ( !is_callable($call) ){
-			trigger_error("Cannot attach uncallable function to invokable event.");
-			return null;
+
+	/**
+	 * Attaches a callable to run when event is invoked.
+	 *
+	 * @param callable $call Callback.
+	 * @return $this
+	 * @throws InvalidArgumentException if callback is not callable.
+	 */
+	public function onInvoke($call) {
+
+		if (! is_callable($call)) {
+			throw new InvalidArgumentException("Cannot attach uncallable function to invokable event.");
 		}
-		
+
 		$this->call = $call;
+
+		return $this;
 	}
-	
-	public function __invoke( $args = array() ){
-		
-		if ( isset($this->call) ){
-			return call_user_func_array($this->call, $args);
+
+	/**
+	 * Calls the event callback.
+	 *
+	 * @param array $args Arguments to pass to callback.
+	 * @return mixed Results of callback.
+	 * @throws RuntimeException if callback is not set.
+	 */
+	public function __invoke($args = array()) {
+
+		if (! isset($this->call)) {
+			throw new RuntimeException("Cannot invoke event - no callback set.");
 		}
-		
+
+		return call_user_func_array($this->call, $args);
 	}
-	
+
 }
