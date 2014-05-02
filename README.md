@@ -39,7 +39,7 @@ $events->trigger('myevent', 'Example'); // outputs "I'm doing my event called Ex
 
 By default, events are added with a priority of 10 and _executed from lowest to highest_. However, due to the fact that developers understand this concept differently, you can change this to high-to-low:
 ```php
-$events->orderBy(\Phpf\Event\Manager::SORT_HIGH_LOW);
+$events->setSortOrder(\Phpf\Event\Manager::SORT_HIGH_LOW);
 ```
 
 Using the default low-to-high order, the following would result in 'myfunc_called_first' to be called before 'myfunc_called_second':
