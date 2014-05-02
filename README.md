@@ -37,7 +37,7 @@ $events->trigger('myevent', 'Example'); // outputs "I'm doing my event called Ex
 
 ### Using Priorities
 
-By default, events are added with a priority of 10 and _executed from lowest to highest_. However, due to the fact that developers understand this concept differently, you can change this to high-to-low:
+By default, events are added with a priority of 10 and _executed from lowest to highest_. However, you can change this to high-to-low, like so:
 ```php
 $events->setSortOrder(\Phpf\Event\Manager::SORT_HIGH_LOW);
 ```
