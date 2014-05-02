@@ -19,7 +19,7 @@ Simple, powerful, and extendable JavaScript-like events for PHP.
 
 ```php
 
-$events = new \Phpf\Event\Container;
+$events = new \Phpf\Event\Manager;
 
 $events->on('myevent', function ($event, $myarg) {
 	
@@ -39,7 +39,7 @@ $events->trigger('myevent', 'Example'); // outputs "I'm doing my event called Ex
 
 By default, events are added with a priority of 10 and _executed from lowest to highest_. However, due to the fact that developers understand this concept differently, you can change this to high-to-low:
 ```php
-$events->orderBy(\Phpf\Event\Container::HIGH_TO_LOW);
+$events->orderBy(\Phpf\Event\Manager::SORT_HIGH_LOW);
 ```
 
 Using the default low-to-high order, the following would result in 'myfunc_called_first' to be called before 'myfunc_called_second':
@@ -93,7 +93,7 @@ $events->on('myevent', function ($event) {
 
 ### Returning Results
 
-When events listeners are executed, any returned result will be collected by the container; on completion (or propagation stoppage), the results will be returned as an indexed array.
+When events listeners are executed, any value returned from the listener will be collected; on completion (or propagation stoppage), the results will be returned as an indexed array.
 
 For example:
 ```php
@@ -114,18 +114,19 @@ print_r($results); // array(0 => 'Hello', 1 => 'Goodbye');
 
 ### Retrieving Completed Events
 
-The event container stores completed events and their returned arrays for later use. The example below shows how to access them:
+The event container stores completed events and their returned arrays for later use. The event object can be retrieved using the `event()` method, and the results can be retrieved using the `results()` method:
 ```php
-$myeventResults = $events->trigger('myevent');
+$results = $events->trigger('myevent');
 
 // ...later on, possibly in another script:
-$resultsAgain = $events->result('myevent');
+$results2 = $events->result('myevent');
 
-$myeventObject = $events->event('myevent');
+$myevent = $events->event('myevent');
 
-// ... do stuff with $myeventObject
+// ... do stuff with $myevent
 
-$newResults = $events->trigger($myeventObject); // re-trigger event
+// re-trigger the event
+$newResults = $events->trigger($myevent);
 ```
 
 ### Cancelling Events
@@ -134,7 +135,7 @@ To cancel an event, simply call the `off()` method:
 ```php
 $events->off('myevent');
 ```
-This will remove any listeners bound to the event, so they will not be called even if subsequently triggered.
+This will remove any listeners bound to the event, so they will not be called if subsequently triggered.
 
 ### Single-Listener Events
 
@@ -152,9 +153,9 @@ $events->trigger('myevent'); // Prints "I will print."
 ```
 
 ### Custom Event Objects
-The `trigger()` method also allows an instance of the `Event` class to be given instead of the event ID. By doing so, you can use custom event objects that have special features.
+You can also pass an instance of the `Event` class to the `trigger()` method instead of the event ID. This way, you can use custom event objects.
 
-For example, if you want an event listeners to be able to modify a returned value (i.e. a "filter"), you could create a class like the following:
+For example, if you want an event listeners to be able to modify a returned value (a "filter"), you could create a class like the following:
 ```php
 namespace MyEvents;
 
@@ -175,7 +176,7 @@ class FilterEvent extends Event {
 }
 ```
 
-Then, you could use the class like so:
+You could then use the class like so:
 ```php
 $events->on('myFilterEvent', function ($event) {
 	$event->setValue('Custom events');
