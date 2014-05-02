@@ -114,7 +114,7 @@ print_r($results); // array(0 => 'Hello', 1 => 'Goodbye');
 
 ### Retrieving Completed Events
 
-The event container stores completed events and their returned arrays for later use. The event object can be retrieved using the `event()` method, and the results can be retrieved using the `results()` method:
+The event container stores completed events and their returned arrays for later use. The event object can be retrieved using the `event()` method, and the results can be retrieved using the `result()` method:
 ```php
 $results = $events->trigger('myevent');
 
