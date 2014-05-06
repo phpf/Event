@@ -172,6 +172,12 @@ class FilterEvent extends Event {
 	
 	protected $value;
 	
+	public function __construct($id, $initial_value) {
+		// must call parent constructor with id if overriding
+		parent::__construct($id);
+		$this->value = $initial_value;
+	}
+	
 	public function getValue() {
 		return $this->value;
 	}
@@ -184,18 +190,20 @@ class FilterEvent extends Event {
 And then use it like so:
 ```php
 $events->on('myFilterEvent', function ($event) {
-	$event->setValue('Custom events');
+	$newval = rtrim($event->getValue(), 's') . ' objects';
+	$event->setValue($newval);
 });
 
 $events->on('myFilterEvent', function ($event) {
 	$event->setValue($event->getValue() . ' are cool.');
 });
 
-$filterEvent = new \MyEvents\FilterEvent('myFilterEvent');
+// Create new object with initial value "Custom events"
+$filterEvent = new \MyEvents\FilterEvent('myFilterEvent', 'Custom events');
 
 $events->trigger($filterEvent);
 
-$filteredEvent = $events->event('myFilterEvent');
+$filtered = $events->event('myFilterEvent');
 
-echo $filteredEvent->getValue(); // Prints "Custom events are cool."
+echo $filtered->getValue(); // Prints "Custom event objects are cool."
 ```
