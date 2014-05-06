@@ -178,7 +178,6 @@ class FilterEvent extends Event {
 	
 	public function setValue($value) {
 		$this->value = $value;
-		return $this;
 	}
 }
 ```
@@ -189,8 +188,7 @@ $events->on('myFilterEvent', function ($event) {
 });
 
 $events->on('myFilterEvent', function ($event) {
-	$val = $event->getValue();
-	$event->setValue($val . ' are cool.');
+	$event->setValue($event->getValue() . ' are cool.');
 });
 
 $filterEvent = new \MyEvents\FilterEvent('myFilterEvent');
