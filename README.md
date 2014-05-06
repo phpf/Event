@@ -3,6 +3,18 @@ Event
 
 Simple, powerful, and extendable JavaScript-like events for PHP.
 
+ 1. [Features](#features)
+ 2. [Basic Usage](#basic-usage)
+ 3. [Examples](#examples)
+  * [Priorities](#priorities)
+  * [Cancelling Events](#cancelling-events)
+  * [Single-Listener Events](#single-listener-events)
+  * [Returning Results](#returning-results)
+  * [Stopping Propagation](#stopping-propagation)
+  * [Retrieving Completed Events](#retrieving-completed-events)
+  * [Custom Event Objects](#custom-event-objects)
+
+
 
 ##Features
 
@@ -35,63 +47,46 @@ $events->trigger('myevent', 'Example'); // outputs "I'm doing my event called Ex
 
 ##Examples
 
-### Using Priorities
+###Priorities
 
-By default, events are added with a priority of 10 and _executed from lowest to highest_. However, you can change this to high-to-low, like so:
+By default, events are added with a priority of 10 and _executed from lowest to highest_:
+```php
+$events->on('myevent', function ($event) { echo "Child"; }, 15);
+
+$events->on('myevent', function ($event) { echo "Bear"; }, 9);
+
+$events->trigger('myevent'); // outputs "BearChild"
+```
+
+You can change the sort order to high-to-low like so:
 ```php
 $events->setSortOrder(\Phpf\Event\Manager::SORT_HIGH_LOW);
 ```
 
-Using the default low-to-high order, the following would result in 'myfunc_called_first' to be called before 'myfunc_called_second':
-```php
-$events->on('myevent', 'myfunc_called_second'), 15);
-$events->on('myevent', 'myfunc_called_first', 9);
+###Cancelling Events
 
-$events->trigger('myevent');
+To cancel an event, simply call the `off()` method:
+```php
+$events->off('myevent');
 ```
+This will remove any listeners bound to the event, so they will not be called if subsequently triggered.
 
-### Stopping Propagation
+###Single-Listener Events
 
-Like JS events, propagation of Phpf events can be stopped by a listener at any time. 
-
+You can limit an event's execution to a single listener by using the `one()` method instead of `on()`:
 ```php
-$events->on('myevent', function ($event) {
-	
-	echo "This will be printed";
-	
-	$event->stopPropagation();
+$events->one('myevent', function ($event) {
+	echo "I will print.";
 });
 
 $events->on('myevent', function ($event) {
-
-	echo "This will not be printed.";
+	echo "I will not print, even though I was bound later.";
 });
-```
-In the example above, because the two events have the same priority and the first event is added first (which stops propagation), the second callback will not be called. 
 
-A more complex example:
-```php
-$events->on('myevent', function ($event) {
-	
-	echo "I won't even be called.";
-	
-}, 15);
-
-$events->on('myevent', function ($event) {
-	
-	echo "I will print second.";
-	
-	$event->stopPropagation();
-	
-}, 11);
-
-$events->on('myevent', function ($event) {
-	
-	echo "I will print first.";
-});
+$events->trigger('myevent'); // Prints "I will print."
 ```
 
-### Returning Results
+###Returning Results
 
 When events listeners are executed, any value returned from the listener will be collected; on completion (or propagation stoppage), the results will be returned as an indexed array.
 
@@ -112,50 +107,62 @@ $results = $events->trigger('myevent');
 print_r($results); // array(0 => 'Hello', 1 => 'Goodbye');
 ```
 
-### Retrieving Completed Events
+###Stopping Propagation
 
-The event container stores completed events and their returned arrays for later use. The event object can be retrieved using the `event()` method, and the results can be retrieved using the `result()` method:
+Like JS, propagation of events can be stopped by a listener at any time.
 ```php
-$results = $events->trigger('myevent');
-
-// ...later on, possibly in another script:
-$results2 = $events->result('myevent');
-
-$myevent = $events->event('myevent');
-
-// ... do stuff with $myevent
-
-// re-trigger the event
-$newResults = $events->trigger($myevent);
-```
-
-### Cancelling Events
-
-To cancel an event, simply call the `off()` method:
-```php
-$events->off('myevent');
-```
-This will remove any listeners bound to the event, so they will not be called if subsequently triggered.
-
-### Single-Listener Events
-
-You can limit an event's execution to a single listener by using the `one()` method instead of `on()`:
-```php
-$events->one('myevent', function ($event) {
-	echo "I will print.";
+$events->on('myevent', function ($event) {
+	
+	echo "This will be printed";
+	
+	$event->stopPropagation();
 });
 
 $events->on('myevent', function ($event) {
-	echo "I will not print, even though I was bound later.";
-});
 
-$events->trigger('myevent'); // Prints "I will print."
+	echo "This will not be printed.";
+});
 ```
 
-### Custom Event Objects
+```php
+$events->on('myevent', function ($event) {
+	
+	echo "I will not be called.";
+}, 12);
+
+$events->on('myevent', function ($event) {
+	
+	echo "I will print second.";
+	
+	$event->stopPropagation();
+}, 11);
+
+$events->on('myevent', function ($event) {
+	
+	echo "I will print first.";
+});
+```
+
+###Retrieving Completed Events
+
+The completed events and their returned arrays are stored for later use. The event object can be retrieved using the `event()` method, the results using the `result()` method:
+```php
+$results = $events->trigger('myevent');
+
+// ...later on, in another script:
+$myevent = $events->event('myevent');
+$sameResults = $events->result('myevent');
+
+// ... do stuff with event/results
+
+// re-trigger the event !
+$newResults = $events->trigger($myevent);
+```
+
+###Custom Event Objects
 You can also pass an instance of the `Event` class to the `trigger()` method instead of the event ID. This way, you can use custom event objects.
 
-For example, if you want an event listeners to be able to modify a returned value (a "filter"), you could create a class like the following:
+For example, if you want listeners to be able to modify a single returned value (a "filter"), you could create a class like this:
 ```php
 namespace MyEvents;
 
@@ -175,8 +182,7 @@ class FilterEvent extends Event {
 	}
 }
 ```
-
-You could then use the class like so:
+And then use it like so:
 ```php
 $events->on('myFilterEvent', function ($event) {
 	$event->setValue('Custom events');
