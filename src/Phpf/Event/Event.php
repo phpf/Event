@@ -11,7 +11,7 @@ class Event implements ArrayAccess
 	 * Unique identifier for the event.
 	 * @var string
 	 */
-	public $id;
+	protected $id;
 	
 	/**
 	 * Whether the default behavior should be prevented.
@@ -30,7 +30,7 @@ class Event implements ArrayAccess
 	 * 
 	 * @param string $id Event identifier.
 	 */
-	final public function __construct($id) {
+	public function __construct($id) {
 		$this->id = $id;
 	}
 
@@ -70,6 +70,16 @@ class Event implements ArrayAccess
 	 */
 	final public function isPropagationStopped() {
 		return $this->propagationStopped;
+	}
+	
+	/**
+	 * Magic get to allow access to non-public properties.
+	 * 
+	 * @param string $var Propety name.
+	 * @return mixed Property value or null.
+	 */
+	public function __get($var) {
+		return isset($this->$var) ? $this->$var : null;
 	}
 	
 	/**

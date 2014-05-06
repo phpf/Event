@@ -2,7 +2,6 @@
 
 namespace Phpf\Event;
 
-use Phpf\Common\ManagerInterface;
 use OutOfBoundsException;
 use InvalidArgumentException;
 
@@ -11,54 +10,90 @@ use InvalidArgumentException;
  * 
  * Class for binding and triggering events.
  */
-class Manager implements ManagerInterface
+class Manager
 {
 	
 	/**
 	 * Sort and execute listeners from low-to-high priority.
+	 * 
 	 * e.g. 1 before 2, 2 before 3, etc.
+	 * 
 	 * @var integer
 	 */
-	const LOW_TO_HIGH = 1;
+	const SORT_LOW_HIGH = 1;
 	
 	/**
 	 * Sort and execute listeners from high-to-low priority.
+	 * 
 	 * e.g. 3 before 2, 2 before 1, etc.
+	 * 
 	 * @var integer
 	 */
-	const HIGH_TO_LOW = 2;
+	const SORT_HIGH_LOW = 2;
 	
 	/**
 	 * Default priority assigned to events.
+	 * 
 	 * @var integer
 	 */
 	const DEFAULT_PRIORITY = 10;
 	
 	/**
-	 * Type of listener order to use. Either 1 or 2.
+	 * Context information for the event emitter.
+	 * 
+	 * No specific purpose; exists for developer use.
+	 * 
+	 * @var mixed
+	 */
+	protected $context;
+	
+	/**
+	 * Sort order to use for listener priorities. 
+	 * 
+	 * One of the SORT_* class constants. Default is low-to-high.
+	 * 
 	 * @var integer
 	 */
 	protected $order;
 	
 	/**
-	 * Events and their listeners.
+	 * Associative array of events and their listeners.
+	 * 
+	 * Event name/IDs are used as keys.
+	 * Each value is an array of listeners, each of which, until 
+	 * triggered, remain as an indexed array of callback and priority.
+	 * 
 	 * @var array
 	 */
 	protected $listeners = array();
 	
 	/**
 	 * Completed event objects and their results.
+	 * 
 	 * @var array
 	 */
 	protected $completed = array();
+	
+	/**
+	 * Whether event propagation should be stopped if a 
+	 * listener returns boolean false. Default false.
+	 * 
+	 * @var boolean
+	 */
+	protected $stop_on_false = false;
 
 	/**
 	 * Sets the default sort order (low to high).
 	 * 
 	 * @return void
 	 */
-	public function __construct() {
-		$this->order = static::LOW_TO_HIGH;
+	public function __construct($context = null) {
+			
+		if (isset($context)) {
+			$this->context = $context;
+		}
+		
+		$this->order = static::SORT_LOW_HIGH;
 	}
 
 	/**
@@ -82,6 +117,48 @@ class Manager implements ManagerInterface
 	}
 	
 	/**
+	 * Unregisters one or all listeners for an event.
+	 * 
+	 * @param string|Event $event Event ID or object.
+	 * @param callable $callback [Optional] Callback to remove. If no callback 
+	 * is given, then all of the event's listeners are removed.
+	 * 
+	 * @return $this
+	 * 
+	 * @throws InvalidArgumentException if event is not a string or Event instance.
+	 */
+	public function off($event, $callback = null) {
+		
+		if (is_string($event)) {
+			$id = $event;
+		} else if ($event instanceof Event) {
+			$id = $event->id;
+		} else {
+			throw new InvalidArgumentException('Event must be string or instance of Event - '.gettype($event).' given.');
+		}
+		
+		// no listeners to unset
+		if (empty($this->listeners[$id])) {
+			return $this;
+		}
+		
+		// if no callback given, unset all listeners
+		if (empty($callback)) {
+			unset($this->listeners[$id]);
+			return $this;
+		}
+		
+		// iterate through listeners and unset matching callback
+		foreach($this->listeners[$id] as $i => $arr) {
+			if ($callback == $arr[0]) {
+				unset($this->listeners[$id][$i]);
+			}
+		}
+		
+		return $this;
+	}
+
+	/**
 	 * Adds an event listener which will be the only one called for the event.
 	 * 
 	 * @param string $event Event ID.
@@ -101,48 +178,10 @@ class Manager implements ManagerInterface
 	}
 	
 	/**
-	 * Unregisters one or all listeners for an event.
-	 * 
-	 * @param string|Event $event Event ID or object.
-	 * @param callable $callback [Optional] Callback to remove.
-	 * 
-	 * @return $this
-	 * 
-	 * @throws InvalidArgumentException if event is not a string or Event instance.
-	 */
-	public function off($event, $callback = null) {
-		
-		if (is_string($event)) {
-			$id = $event;
-		} else if ($event instanceof Event) {
-			$id = $event->id;
-		} else {
-			throw new InvalidArgumentException('Event must be string or instance of Event - '.gettype($event).' given.');
-		}
-		
-		if (empty($this->listeners[$id])) {
-			return $this;
-		}
-		
-		if (! isset($callback)) {
-			unset($this->listeners[$id]);
-			return $this;
-		}
-		
-		foreach($this->listeners[$id] as $i => $arr) {
-			if ($callback == $arr[0]) {
-				unset($this->listeners[$id][$i]);
-			}
-		}
-		
-		return $this;
-	}
-
-	/**
 	 * Triggers an event.
 	 *
 	 * @param Event|string $event Event object or ID.
-	 * @param ... Args
+	 * @param ... Arguments to pass to callback.
 	 * 
 	 * @return array Items returned from event listeners.
 	 */
@@ -155,7 +194,7 @@ class Manager implements ManagerInterface
 
 		list($event, $listeners) = $prepared;
 
-		// get args
+		// get function args
 		$args = func_get_args();
 
 		// remove event from args
@@ -181,6 +220,16 @@ class Manager implements ManagerInterface
 		list($event, $listeners) = $prepared;
 
 		return $this->execute($event, $listeners, $args);
+	}
+
+	/**
+	 * Returns whether an event has been completed.
+	 * 
+	 * @param string $eventId Event ID.
+	 * @return boolean True if event has completed, otherwise false.
+	 */
+	public function did($eventId) {
+		return isset($this->completed[$eventId]);
 	}
 
 	/**
@@ -216,9 +265,9 @@ class Manager implements ManagerInterface
 	 * 
 	 * @throws OutOfBoundsException if order is not one of the class constants.
 	 */
-	public function orderBy($order) {
+	public function setSortOrder($order) {
 
-		if ($order != static::LOW_TO_HIGH && $order != static::HIGH_TO_LOW) {
+		if ($order != static::SORT_LOW_HIGH && $order != static::SORT_HIGH_LOW) {
 			throw new OutOfBoundsException("Invalid sort order.");
 		}
 
@@ -226,7 +275,45 @@ class Manager implements ManagerInterface
 
 		return $this;
 	}
-
+	
+	/**
+	 * Sets whether to stop propagation if a listener returns boolean false.
+	 * 
+	 * @param boolean $value True to stop on false, or false to not stop (default).
+	 * @return $this
+	 */
+	public function setStopOnFalse($value) {
+		$this->stop_on_false = (bool)$value;
+		return $this;
+	}
+	
+	/**
+	 * Returns whether the manager is set to stop propagation if a listener returns boolean false.
+	 * 
+	 * @return boolean True if stopping when listener returns false, otherwise false.
+	 */
+	public function stopsOnFalse() {
+		return $this->stop_on_false;
+	}
+	
+	/**
+	 * Returns true if sort order is low to high.
+	 * 
+	 * @return boolean True if sort order is low-to-high, otherwise false.
+	 */
+	public function isLowToHigh() {
+		return $this->order === static::SORT_LOW_HIGH;
+	}
+	
+	/**
+	 * Returns true if sort order is high to low.
+	 * 
+	 * @return boolean True if sort order is high-to-low, otherwise false.
+	 */
+	public function isHighToLow() {
+		return $this->order === static::SORT_HIGH_LOW;
+	}
+	
 	/**
 	 * Prepares event for execution by lazy-loading listener objects.
 	 *
@@ -239,35 +326,40 @@ class Manager implements ManagerInterface
 	 */
 	protected function prepare($event) {
 		
-		if ($event instanceof Event) {
-				
-			if (empty($this->listeners[$event->id]))
-				return false;
+		if (! $event instanceof Event) {
 			
-		} else if (is_string($event)) {
-		
-			if (empty($this->listeners[$event]))
+			// events must be passed as object or string
+			if (! is_string($event)) {
+				$msg = 'Event must be string or instance of Event - '.gettype($event).' given.';
+				throw new InvalidArgumentException($msg);
+			}
+			
+			// don't instantiate if no listeners
+			if (empty($this->listeners[$event])) {
 				return false;
+			}
 		
 			$event = new Event($event);
-		
-		} else {
-			$msg = "Event must be string or instance of Event - ".gettype($event)." given.";
-			throw new InvalidArgumentException($msg);
+			
+		} else if (empty($this->listeners[$event->id])) {
+			// object given, no listeners
+			return false;
 		}
 		
-		// call only the 'one' listener, if it exists
+		// If a "one" listener exists, call no others
 		if (isset($this->listeners[$event->id]['one'])) {
 			
 			list($callback, $priority) = $this->listeners[$event->id]['one'];
 			
+			// populate array with just the one listener
 			$listeners = array(new Listener($event->id, $callback, $priority));
 			
 		} else {
+			
 			// normal event - get all listeners
 			$listeners = $this->listeners[$event->id];
 			
-			// lazy-load the listeners
+			// lazily instantiate all the listeners
 			foreach($listeners as $key => &$value) {
 				$value = new Listener($event->id, $value[0], $value[1]);
 			}
@@ -289,20 +381,27 @@ class Manager implements ManagerInterface
 
 		$return = array();
 
-		// Sort the listeners.
+		// Sort the listeners
 		usort($listeners, array($this, 'sortListeners'));
 
 		// Call the listeners
 		foreach ( $listeners as $listener ) {
-
-			$return[] = $listener($event, $args);
-
-			// Return if listener has stopped propagation
+			
+			// Stop propagation (if set to do so) if event returned false
+			if (false === ($lastVal = $listener($event, $args)) && $this->stop_on_false) {
+				$event->stopPropagation();
+			} else {
+				// Otherwise collect the returned value
+				$return[] = $lastVal;
+			}
+			
+			// Return if event propagation stopped
 			if ($event->isPropagationStopped()) {
 				return $this->complete($event, $return);
 			}
 		}
-
+		
+		// Return the array of callback results
 		return $this->complete($event, $return);
 	}
 
@@ -310,13 +409,18 @@ class Manager implements ManagerInterface
 	 * Stores the Event and its return array once the last listener has been called.
 	 *
 	 * @param Event $event The completed event object.
-	 * @param array $return The returned array.
+	 * @param array $result The array of returned results.
 	 * 
-	 * @return array The returned array, for returning from execute().
+	 * @return array The returned result array, for returning from execute().
 	 */
-	protected function complete(Event $event, array $return) {
-		$this->completed[$event->id] = array('event' => $event, 'result' => $return);
-		return $return;
+	protected function complete(Event $event, array $results) {
+			
+		$this->completed[$event->id] = array(
+			'event' => $event, 
+			'result' => $results
+		);
+		
+		return $results;
 	}
 
 	/**
@@ -329,7 +433,7 @@ class Manager implements ManagerInterface
 	 */
 	protected function sortListeners(Listener $a, Listener $b) {
 
-		if ($this->order === static::LOW_TO_HIGH) {
+		if ($this->order === static::SORT_LOW_HIGH) {
 			
 			return ($a->priority >= $b->priority) ? 1 : -1;
 			
@@ -339,11 +443,4 @@ class Manager implements ManagerInterface
 		}
 	}
 	
-	/**
-	 * Implements Phpf\Common\ManagerInterface
-	 */
-	final public function manages() {
-		return 'events';
-	}
-
 }
