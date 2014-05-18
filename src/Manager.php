@@ -6,7 +6,7 @@ use OutOfBoundsException;
 use InvalidArgumentException;
 
 /**
- * Event manager/container.
+ * Event manager/container/emitter.
  * 
  * Class for binding and triggering events.
  */
@@ -61,7 +61,7 @@ class Manager
 	 * 
 	 * Event name/IDs are used as keys.
 	 * Each value is an array of listeners, each of which, until 
-	 * triggered, remain as an indexed array of callback and priority.
+	 * triggered, remains as an indexed array of callback and priority.
 	 * 
 	 * @var array
 	 */
@@ -244,7 +244,7 @@ class Manager
 	}
 
 	/**
-	 * Returns the array that was returned from a completed Event trigger.
+	 * Returns the array that was returned from a completed event trigger.
 	 *
 	 * This allows you to access previously returned values (obviously).
 	 *
@@ -387,17 +387,19 @@ class Manager
 		// Call the listeners
 		foreach ( $listeners as $listener ) {
 			
-			// Stop propagation (if set to do so) if event returned false
-			if (false === ($lastVal = $listener($event, $args)) && $this->stop_on_false) {
+			$value = $listener($event, $args);
+			
+			// If false, stop propagation if set to do so
+			if (false === $value && $this->stop_on_false) {
 				$event->stopPropagation();
 			} else {
 				// Otherwise collect the returned value
-				$return[] = $lastVal;
+				$return[] = $value;
 			}
 			
-			// Return if event propagation stopped
+			// break if event propagation stopped
 			if ($event->isPropagationStopped()) {
-				return $this->complete($event, $return);
+				break;
 			}
 		}
 		

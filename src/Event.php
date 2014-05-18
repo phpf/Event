@@ -2,9 +2,7 @@
 
 namespace Phpf\Event;
 
-use ArrayAccess;
-
-class Event implements ArrayAccess
+class Event implements \ArrayAccess
 {
 	
 	/**
