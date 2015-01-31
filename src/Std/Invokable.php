@@ -1,12 +1,8 @@
 <?php
 
-namespace Phpf\Event\Std;
+namespace xpl\Event\Std;
 
-use Phpf\Event;
-use InvalidArgumentException;
-use RuntimeException;
-
-class Invokable extends Event
+class Invokable extends \xpl\Event\Event
 {
 
 	/**
@@ -25,7 +21,7 @@ class Invokable extends Event
 	public function onInvoke($call) {
 
 		if (! is_callable($call)) {
-			throw new InvalidArgumentException("Cannot attach uncallable function to invokable event.");
+			throw new \InvalidArgumentException("Cannot attach uncallable function to invokable event.");
 		}
 
 		$this->call = $call;
@@ -43,7 +39,7 @@ class Invokable extends Event
 	public function __invoke($args = array()) {
 
 		if (! isset($this->call)) {
-			throw new RuntimeException("Cannot invoke event - no callback set.");
+			throw new \RuntimeException("Cannot invoke event - no callback set.");
 		}
 
 		return call_user_func_array($this->call, $args);

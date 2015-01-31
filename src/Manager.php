@@ -1,9 +1,6 @@
 <?php
 
-namespace Phpf\Event;
-
-use OutOfBoundsException;
-use InvalidArgumentException;
+namespace xpl\Event;
 
 /**
  * Event manager/container/emitter.
@@ -15,37 +12,17 @@ class Manager
 	
 	/**
 	 * Sort and execute listeners from low-to-high priority.
-	 * 
 	 * e.g. 1 before 2, 2 before 3, etc.
-	 * 
 	 * @var integer
 	 */
-	const SORT_LOW_HIGH = 1;
+	const SORT_LOW_HIGH = 0;
 	
 	/**
 	 * Sort and execute listeners from high-to-low priority.
-	 * 
 	 * e.g. 3 before 2, 2 before 1, etc.
-	 * 
 	 * @var integer
 	 */
-	const SORT_HIGH_LOW = 2;
-	
-	/**
-	 * Default priority assigned to events.
-	 * 
-	 * @var integer
-	 */
-	const DEFAULT_PRIORITY = 10;
-	
-	/**
-	 * Context information for the event emitter.
-	 * 
-	 * No specific purpose; exists for developer use.
-	 * 
-	 * @var mixed
-	 */
-	protected $context;
+	const SORT_HIGH_LOW = 1;
 	
 	/**
 	 * Sort order to use for listener priorities. 
@@ -57,47 +34,41 @@ class Manager
 	protected $order;
 	
 	/**
+	 * The sort function to use.
+	 * 
+	 * @var string
+	 */
+	protected $sort_func;
+	
+	/**
 	 * Associative array of events and their listeners.
 	 * 
 	 * Event name/IDs are used as keys.
-	 * Each value is an array of listeners, each of which, until 
-	 * triggered, remains as an indexed array of callback and priority.
 	 * 
 	 * @var array
 	 */
-	protected $listeners = array();
+	protected $listeners;
 	
 	/**
 	 * Completed event objects and their results.
 	 * 
 	 * @var array
 	 */
-	protected $completed = array();
+	protected $completed;
 	
-	/**
-	 * Whether event propagation should be stopped if a 
-	 * listener returns boolean false. Default false.
-	 * 
-	 * @var boolean
-	 */
-	protected $stop_on_false = false;
-
 	/**
 	 * Sets the default sort order (low to high).
 	 * 
 	 * @return void
 	 */
-	public function __construct($context = null) {
-			
-		if (isset($context)) {
-			$this->context = $context;
-		}
-		
-		$this->order = static::SORT_LOW_HIGH;
+	public function __construct() {
+		$this->listeners = array();
+		$this->completed = array();
+		$this->setSortOrder(static::SORT_LOW_HIGH);
 	}
 
 	/**
-	 * Adds an event listener (real listeners are lazy-loaded).
+	 * Adds an event listener.
 	 *
 	 * @param string $event Event ID.
 	 * @param callable $call Callable to execute on event trigger.
@@ -105,14 +76,14 @@ class Manager
 	 * 
 	 * @return $this
 	 */
-	public function on($event, $call, $priority = self::DEFAULT_PRIORITY) {
+	public function on($event, $call, $priority = 10) {
 
 		if (! isset($this->listeners[$event])) {
 			$this->listeners[$event] = array();
 		}
 		
-		$this->listeners[$event][] = array($call, $priority);
-
+		$this->listeners[$event][] = new Listener($event, $call, $priority);
+		
 		return $this;
 	}
 	
@@ -134,24 +105,23 @@ class Manager
 		} else if ($event instanceof Event) {
 			$id = $event->id;
 		} else {
-			throw new InvalidArgumentException('Event must be string or instance of Event - '.gettype($event).' given.');
+			throw new \InvalidArgumentException('Event must be string or instance of Event, given: '.gettype($event));
 		}
 		
-		// no listeners to unset
-		if (empty($this->listeners[$id])) {
-			return $this;
-		}
-		
-		// if no callback given, unset all listeners
-		if (empty($callback)) {
-			unset($this->listeners[$id]);
-			return $this;
-		}
-		
-		// iterate through listeners and unset matching callback
-		foreach($this->listeners[$id] as $i => $arr) {
-			if ($callback == $arr[0]) {
-				unset($this->listeners[$id][$i]);
+		if (! empty($this->listeners[$id])) {
+				
+			// if no callback given, unset all listeners
+			if (empty($callback)) {
+				unset($this->listeners[$id]);
+			
+			} else {
+				// iterate through listeners and unset matching callback
+				foreach($this->listeners[$id] as $i => $listener) {
+				
+					if ($callback == $listener->callback) {
+						unset($this->listeners[$id][$i]);
+					}
+				}
 			}
 		}
 		
@@ -172,7 +142,7 @@ class Manager
 			$this->listeners[$event] = array();
 		}
 		
-		$this->listeners[$event]['one'] = array($call, 1);
+		$this->listeners[$event]['one'] = new Listener($event, $call, 1);
 		
 		return $this;
 	}
@@ -202,7 +172,7 @@ class Manager
 
 		return $this->execute($event, $listeners, $args);
 	}
-
+	
 	/**
 	 * Triggers an event with an array of arguments.
 	 * 
@@ -220,6 +190,33 @@ class Manager
 		list($event, $listeners) = $prepared;
 
 		return $this->execute($event, $listeners, $args);
+	}
+	
+	public function filter($event, $value) {
+
+		// get function args
+		$args = func_get_args();
+		
+		// remove event from args
+		array_shift($args);
+		
+		return $this->filterArray($event, $args);
+	}
+
+	public function filterArray($event, array $args) {
+		
+		if (false === ($prepared = $this->prepare($event))) {
+			// No listeners, return the initial value
+			return reset($args);
+		}
+
+		list($event, $listeners) = $prepared;
+		
+		$event->value = array_shift($args);
+
+		$this->execute($event, $listeners, $args);
+		
+		return $event->value;
 	}
 
 	/**
@@ -258,42 +255,26 @@ class Manager
 
 	/**
 	 * Sets the listener priority sort order.
+	 * 
+	 * Tip: you can also use PHP's SORT_ASC and SORT_DESC
 	 *
-	 * @param int $order One of self::LOW_TO_HIGH (1) or self::HIGH_TO_LOW (2)
+	 * @param int $order One of self::LOW_TO_HIGH or self::HIGH_TO_LOW
 	 * 
 	 * @return $this
 	 * 
-	 * @throws OutOfBoundsException if order is not one of the class constants.
+	 * @throws \DomainException if order is not one of the class constants.
 	 */
 	public function setSortOrder($order) {
 
 		if ($order != static::SORT_LOW_HIGH && $order != static::SORT_HIGH_LOW) {
-			throw new OutOfBoundsException("Invalid sort order.");
+			throw new \DomainException("Invalid sort order.");
 		}
 
 		$this->order = (int)$order;
+		
+		$this->sort_func = 'sortListeners'.($this->order === static::SORT_LOW_HIGH ? 'Asc' : 'Desc');
 
 		return $this;
-	}
-	
-	/**
-	 * Sets whether to stop propagation if a listener returns boolean false.
-	 * 
-	 * @param boolean $value True to stop on false, or false to not stop (default).
-	 * @return $this
-	 */
-	public function setStopOnFalse($value) {
-		$this->stop_on_false = (bool)$value;
-		return $this;
-	}
-	
-	/**
-	 * Returns whether the manager is set to stop propagation if a listener returns boolean false.
-	 * 
-	 * @return boolean True if stopping when listener returns false, otherwise false.
-	 */
-	public function stopsOnFalse() {
-		return $this->stop_on_false;
 	}
 	
 	/**
@@ -326,43 +307,30 @@ class Manager
 	 */
 	protected function prepare($event) {
 		
-		if (! $event instanceof Event) {
-			
-			// events must be passed as object or string
-			if (! is_string($event)) {
-				$msg = 'Event must be string or instance of Event - '.gettype($event).' given.';
-				throw new InvalidArgumentException($msg);
-			}
+		if (is_string($event)) {
 			
 			// don't instantiate if no listeners
 			if (empty($this->listeners[$event])) {
 				return false;
 			}
-		
-			$event = new Event($event);
 			
+			$event = new Event($event);
+		
+		} else if (! $event instanceof Event) {
+			throw new \InvalidArgumentException('Event must be string or instance of Event, given: '.gettype($event));
+		
 		} else if (empty($this->listeners[$event->id])) {
 			// object given, no listeners
 			return false;
 		}
 		
-		// If a "one" listener exists, call no others
 		if (isset($this->listeners[$event->id]['one'])) {
-			
-			list($callback, $priority) = $this->listeners[$event->id]['one'];
-			
-			// populate array with just the one listener
-			$listeners = array(new Listener($event->id, $callback, $priority));
-			
+			// If a "one" listener exists, call no others
+			$listeners = array($this->listeners[$event->id]['one']);
+		
 		} else {
-			
 			// normal event - get all listeners
 			$listeners = $this->listeners[$event->id];
-			
-			// lazily instantiate all the listeners
-			foreach($listeners as $key => &$value) {
-				$value = new Listener($event->id, $value[0], $value[1]);
-			}
 		}
 		
 		return array($event, $listeners);
@@ -378,33 +346,36 @@ class Manager
 	 * @return array Array of event callback results.
 	 */
 	protected function execute(Event $event, array $listeners, array $args = array()) {
+		
+		$results = array();
 
-		$return = array();
-
-		// Sort the listeners
-		usort($listeners, array($this, 'sortListeners'));
-
-		// Call the listeners
-		foreach ( $listeners as $listener ) {
+		// Sort listeners by priority
+		usort($listeners, array($this, $this->sort_func));
+		
+		// Prepend event to args array
+		array_unshift($args, $event);
+		
+		// Call each listener
+		foreach ($listeners as $listener) {
 			
-			$value = $listener($event, $args);
+			// Collect the returned value
+			$results[] = $value = $listener($args);
 			
-			// If false, stop propagation if set to do so
-			if (false === $value && $this->stop_on_false) {
-				$event->stopPropagation();
-			} else {
-				// Otherwise collect the returned value
-				$return[] = $value;
+			// Update the event value
+			if ($value && $value !== $event->value) {
+				$event->value = $value;
 			}
 			
-			// break if event propagation stopped
+			unset($value);
+			
+			// End if propagation stopped
 			if ($event->isPropagationStopped()) {
 				break;
 			}
 		}
 		
-		// Return the array of callback results
-		return $this->complete($event, $return);
+		// Return the array of results
+		return $this->complete($event, $results);
 	}
 
 	/**
@@ -426,23 +397,27 @@ class Manager
 	}
 
 	/**
-	 * Listener sort function.
+	 * Ascending listener sort callback.
 	 *
 	 * @param Listener $a
 	 * @param Listener $b
 	 * 
 	 * @return integer Sort result
 	 */
-	protected function sortListeners(Listener $a, Listener $b) {
-
-		if ($this->order === static::SORT_LOW_HIGH) {
-			
-			return ($a->priority >= $b->priority) ? 1 : -1;
-			
-		} else {
-				
-			return ($a->priority <= $b->priority) ? 1 : -1;
-		}
+	protected function sortListenersAsc(Listener $a, Listener $b) {
+		return ($a->priority >= $b->priority) ? 1 : -1;
+	}
+	
+	/**
+	 * Descending listener sort callback.
+	 *
+	 * @param Listener $a
+	 * @param Listener $b
+	 * 
+	 * @return integer Sort result
+	 */
+	protected function sortListenersDesc(Listener $a, Listener $b) {
+		return ($a->priority <= $b->priority) ? 1 : -1;
 	}
 	
 }

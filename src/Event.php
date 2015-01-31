@@ -1,6 +1,6 @@
 <?php
 
-namespace Phpf\Event;
+namespace xpl\Event;
 
 class Event implements \ArrayAccess
 {
@@ -10,6 +10,12 @@ class Event implements \ArrayAccess
 	 * @var string
 	 */
 	protected $id;
+	
+	/**
+	 * Event value.
+	 * @var mixed
+	 */
+	public $value;
 	
 	/**
 	 * Whether the default behavior should be prevented.
@@ -22,7 +28,7 @@ class Event implements \ArrayAccess
 	 * @var boolean
 	 */
 	private $propagationStopped = false;
-
+	
 	/**
 	 * Constructor takes one string parameter, the event ID.
 	 * 
@@ -71,23 +77,13 @@ class Event implements \ArrayAccess
 	}
 	
 	/**
-	 * Magic get to allow access to non-public properties.
-	 * 
-	 * @param string $var Propety name.
-	 * @return mixed Property value or null.
-	 */
-	public function __get($var) {
-		return isset($this->$var) ? $this->$var : null;
-	}
-	
-	/**
 	 * Returns a property value.
 	 * 
 	 * @param string $index Property name.
 	 * @return mixed Property value, if set.
 	 */
 	public function offsetGet($index) {
-		return $this->$index;
+		return $this->__get($index);
 	}
 	
 	/**
@@ -100,9 +96,7 @@ class Event implements \ArrayAccess
 	 * @return void
 	 */
 	public function offsetSet($index, $newval) {
-		if ('defaultPrevented' !== $index && 'propagationStopped' !== $index) {
-			$this->$index = $newval;
-		}
+		$this->__set($index, $newval);
 	}
 	
 	/**
@@ -112,7 +106,7 @@ class Event implements \ArrayAccess
 	 * @return boolean True if property exists and is not null, otherwise false.
 	 */
 	public function offsetExists($index) {
-		return isset($this->$index);
+		return $this->__isset($index);
 	}
 
 	/**
@@ -124,9 +118,33 @@ class Event implements \ArrayAccess
 	 * @return void
 	 */
 	public function offsetUnset($index) {
-		if ('defaultPrevented' !== $index && 'propagationStopped' !== $index) {
-			unset($this->$index);
-		}
+		$this->__unset($index);
 	}
 
+	/**
+	 * Magic get to allow access to non-public properties.
+	 * 
+	 * @param string $var Propety name.
+	 * @return mixed Property value or null.
+	 */
+	public function __get($key) {
+		return isset($this->$key) ? $this->$key : null;
+	}
+	
+	public function __isset($key) {
+		return isset($this->$key);
+	}
+	
+	public function __set($key, $value) {
+		if ('defaultPrevented' !== $key && 'propagationStopped' !== $key) {
+			$this->$key = $value;
+		}
+	}
+	
+	public function __unset($key) {
+		if ('defaultPrevented' !== $key && 'propagationStopped' !== $key) {
+			unset($this->$key);
+		}
+	}
+	
 }

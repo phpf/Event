@@ -1,15 +1,12 @@
 <?php
 
-namespace Phpf\Event\Std;
+namespace xpl\Event\Std;
 
-use Phpf\Event;
-use Exception;
-
-class Error extends Event {
+class Error extends \xpl\Event\Event {
 	
 	public $exceptions;
 	
-	public function attachException(Exception $exception){
+	public function attachException(\Exception $exception){
 		$this->exceptions[] = $exception;
 	}
 	
